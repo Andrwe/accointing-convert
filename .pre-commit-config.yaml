@@ -1,0 +1,41 @@
+---
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.0.1
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+        args:
+          - '--allow-multiple-documents'
+      - id: check-json
+      - id: check-added-large-files
+      - id: check-symlinks
+      - id: destroyed-symlinks
+      - id: check-executables-have-shebangs
+  - repo: https://github.com/AleksaC/hadolint-py
+    rev: v2.1.0
+    hooks:
+      - id: hadolint
+        args:
+          - '--ignore'
+          - 'DL3007'
+          - '--ignore'
+          - 'DL3008'
+          - '--ignore'
+          - 'DL3013'
+  - repo: https://github.com/jumanjihouse/pre-commit-hooks
+    rev: 2.1.5
+    hooks:
+      - id: shellcheck
+  - repo: https://github.com/psf/black
+    rev: 21.6b0
+    hooks:
+      - id: black
+  - repo: https://gitlab.com/PyCQA/flake8
+    rev: 3.9.2
+    hooks:
+      - id: flake8
+        args:
+          - '--max-line-length'
+          - '99'

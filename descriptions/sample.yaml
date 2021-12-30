@@ -1,0 +1,55 @@
+---
+description:
+  skip_rows:
+    - field: "column12"
+      value: "false"
+    - field: "column13"
+      value: "foobar"
+  transactionType: "column1"
+  date:
+    field: "column2"
+    # based on https://docs.python.org/3/library/datetime.html#strftime-strptime-behavior
+    format: "%Y-%m-%d %H:%M:%S"
+  inBuyAmount:
+    map: "inBuyAmountMap"
+  inBuyAsset: "column7"
+  outSellAmount: "column5"
+  outSellAsset: "column6"
+  feeAmount: false
+  feeAsset: false
+  classification:
+    map: "classificationMap"
+  operationId:
+    generate: true
+
+inBuyAmountMap:
+  field: "column4"
+  default:
+    field: "Amount"
+  map:
+    value2:
+      field: "column5"
+    value3:
+      field: "column3"
+inBuyAssetMap:
+  field: "column4"
+  default:
+    field: "Currency"
+  map:
+    value2:
+      field: "column6"
+    value5: false
+
+classificationMap:
+  field: "column10"
+  map:
+    value1:
+      value: "add_funds"
+    value2:
+      value: "remove_funds"
+    value3:
+      value: "gift_received"
+    value4:
+      value: "bounty"
+    value5:
+      value: "staked"

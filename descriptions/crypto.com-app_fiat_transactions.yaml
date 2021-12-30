@@ -1,0 +1,75 @@
+---
+description:
+  transactionType:
+    map: "transactionTypeMap"
+  date:
+    field: "Timestamp (UTC)"
+    format: "%Y-%m-%d %H:%M:%S"
+  inBuyAmount:
+    map: "inBuyAmountMap"
+  inBuyAsset:
+    map: "inBuyAssetMap"
+  outSellAmount:
+    map: "outSellAmountMap"
+  outSellAsset:
+    map: "outSellAssetMap"
+  feeAmount: false
+  feeAsset: false
+  classification:
+    map: "classificationMap"
+  operationId:
+    generate: true
+
+inBuyAmountMap:
+  field: "Transaction Kind"
+  default:
+    field: "Amount"
+  map:
+    viban_purchase:
+      field: "To Amount"
+inBuyAssetMap:
+  field: "Transaction Kind"
+  default:
+    field: "Currency"
+  map:
+    viban_purchase:
+      field: "To Currency"
+
+outSellAmountMap:
+  field: "Transaction Kind"
+  default:
+    field: "Native Amount"
+  map:
+    viban_purchase:
+      field: "Amount"
+outSellAssetMap:
+  field: "Transaction Kind"
+  default:
+    field: "Native Currency"
+  map:
+    viban_purchase:
+      field: "Currency"
+
+transactionTypeMap:
+  field: "Transaction Kind"
+  map:
+    # withdraw FIAT to Visa card
+    viban_card_top_up:
+      value: withdraw
+    # transfer FIAT into Crypto.com
+    viban_deposit:
+      value: deposit
+    # buy crypto with FIAT
+    viban_purchase:
+      value: order
+
+classificationMap:
+  field: "Transaction Kind"
+  map:
+    viban_card_top_up:
+      value: "remove_funds"
+    viban_deposit:
+      value: "add_funds"
+    # viban_purchase does not need a classification as it converts FIAT to crypto
+    viban_purchase:
+      value: ""

@@ -1,0 +1,112 @@
+---
+description:
+  skip_rows:
+    # staking using supercharger is no transaction that changes the portfolio
+    - field: "Transaction Kind"
+      value: "supercharger_deposit"
+    # CRO locking for Visa card is no transaction that changes the portfolio
+    - field: "Transaction Kind"
+      value: "lockup_lock"
+    # viban_purchase should be imported from fiat_transaction export
+    - field: "Transaction Kind"
+      value: "viban_purchase"
+  transactionType:
+    map: "transactionTypeMap"
+  date:
+    field: "Timestamp (UTC)"
+    format: "%Y-%m-%d %H:%M:%S"
+  inBuyAmount:
+    map: "inBuyAmountMap"
+  inBuyAsset:
+    map: "inBuyAssetMap"
+  outSellAmount:
+    map: "outSellAmountMap"
+  outSellAsset:
+    map: "outSellAssetMap"
+  feeAmount: false
+  feeAsset: false
+  classification:
+    map: "classificationMap"
+  operationId:
+    generate: true
+
+inBuyAmountMap:
+  field: "Transaction Kind"
+  default:
+    field: "Amount"
+  map:
+    viban_purchase:
+      field: "To Amount"
+inBuyAssetMap:
+  field: "Transaction Kind"
+  default:
+    field: "Currency"
+  map:
+    viban_purchase:
+      field: "To Currency"
+
+outSellAmountMap:
+  field: "Transaction Kind"
+  default:
+    field: "Native Amount"
+  map:
+    lockup_lock:
+      field: "Amount"
+    referral_card_cashback: false
+    referral_gift: false
+    reimbursement: false
+    supercharger_reward_to_app_credited: false
+    viban_purchase:
+      field: "Amount"
+outSellAssetMap:
+  field: "Transaction Kind"
+  default:
+    field: "Native Currency"
+  map:
+    lockup_lock:
+      field: "Currency"
+    referral_card_cashback: false
+    referral_gift: false
+    reimbursement: false
+    supercharger_reward_to_app_credited: false
+    viban_purchase:
+      field: "Currency"
+
+transactionTypeMap:
+  field: "Transaction Kind"
+  map:
+    # purchase using direct payment from bank account
+    crypto_purchase:
+      value: order
+    # staking for CRO benefits like Visa Card level
+    lockup_lock:
+      value: withdraw
+    # cashback from using Visa Card
+    referral_card_cashback:
+      value: deposit
+    # gift from referral program
+    referral_gift:
+      value: deposit
+    # bounty for paying supported services like Spotify with Visa Card
+    reimbursement:
+      value: deposit
+    # staking rewards for using supercharger
+    supercharger_reward_to_app_credited:
+      value: deposit
+    # purchase using existing funds on crypto.com
+    viban_purchase:
+      value: order
+
+classificationMap:
+  field: "Transaction Kind"
+  map:
+    crypto_purchase:
+      value: "add_funds"
+    referral_card_cashback:
+      value: "add_funds"
+    referral_gift:
+      value: "gift_received"
+    reimbursement:
+      value: "bounty"
+    supercharger_reward_to_app_credited:
+      value: "staked"
