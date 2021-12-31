@@ -10,6 +10,7 @@ import subprocess
 import csv
 import hashlib
 import datetime
+import shutil
 from logging import getLogger, INFO
 from pathlib import Path
 
@@ -158,25 +159,27 @@ class AccointingCsv:
             template_filepath,
         )
         if self.soffice:
-            if not Path(self.soffice).exists():
+            soffice_path = Path(self.soffice)
+            if not soffice_path.exists() and not (
+                soffice_path.is_file() or soffice_path.is_symlink()
+            ):
                 raise ProcessLookupError(
-                    "Give soffice-path does not exist. Please check '--soffice-path'."
+                    "Given soffice-path is not valid. Please check '--soffice-path'."
                 )
         else:
-            try:
-                run_soffice_detect = subprocess.run(
-                    ["which", "soffice"], capture_output=True, check=True
-                )
-            except subprocess.CalledProcessError as err:
+            self.soffice = shutil.which("soffice")
+            if not self.soffice:
                 raise ProcessLookupError(
                     "Required command soffice not found. "
                     "Please install LibreOffice or use '--soffice-path'."
-                ) from err
-            self.soffice = run_soffice_detect.stdout.decode("UTF-8").strip()
+                )
         self.logger.info("Starting conversion using %s.", self.soffice)
         try:
             run_soffice_name = subprocess.run(
-                [self.soffice, "--version"], capture_output=True, check=True
+                [self.soffice, "--version"],
+                capture_output=True,
+                check=True,
+                shell=False,
             )
         except subprocess.CalledProcessError as err:
             raise ProcessLookupError(

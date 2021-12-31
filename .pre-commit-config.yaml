@@ -39,3 +39,11 @@ repos:
         args:
           - '--max-line-length'
           - '99'
+  - repo: https://github.com/PyCQA/bandit
+    rev: 1.7.1
+    hooks:
+      - id: bandit
+        args:
+          # all subprocess calls are checked for exploitability
+          - '--skip'
+          - 'B404,B603'
