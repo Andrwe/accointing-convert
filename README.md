@@ -12,8 +12,6 @@ For supported files see [descriptions](https://github.com/Andrwe/accointing-conv
 
 [![View site - GH Pages](https://img.shields.io/badge/View_site-GH_Pages-2ea44f?style=for-the-badge)](https://andrwe.github.io/accointing-convert/)
 
-[![view - Documentation](https://img.shields.io/badge/view-Documentation-blue?style=for-the-badge)](/docs/ "Go to project documentation")
-
 ## Kudos
 
 * [Badge Generator](https://michaelcurrin.github.io/badge-generator/#/) for providing easy method to generate badges/shields
