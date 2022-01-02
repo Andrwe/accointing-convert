@@ -13,6 +13,7 @@ repos:
       - id: check-symlinks
       - id: destroyed-symlinks
       - id: check-executables-have-shebangs
+      - id: requirements-txt-fixer
   - repo: https://github.com/AleksaC/hadolint-py
     rev: v2.8.0
     hooks:
@@ -47,3 +48,13 @@ repos:
           # all subprocess calls are checked for exploitability
           - '--skip'
           - 'B404,B603'
+  - repo: https://github.com/PyCQA/prospector
+    rev: 1.5.3.1
+    hooks:
+      - id: prospector
+
+  - repo: https://github.com/sirosen/check-jsonschema
+    rev: 0.9.1
+    hooks:
+      - id: check-github-workflows
+      - id: check-github-actions
