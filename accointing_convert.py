@@ -11,7 +11,8 @@ import csv
 import hashlib
 import datetime
 import shutil
-from logging import getLogger, INFO
+import tempfile
+from logging import getLogger, DEBUG, ERROR, INFO
 from pathlib import Path
 
 
@@ -25,6 +26,14 @@ MODULE_MAP = {
     "yaml": "PyYAML",
     "coloredlogs": "coloredlogs colorama",
 }
+HASH_FIELDS = [
+    "date",
+    "transactionType",
+    "inBuyAmount",
+    "inBuyAsset",
+    "outSellAmount",
+    "outSellAsset",
+]
 
 
 def dep_error(module: str):
@@ -55,21 +64,13 @@ class AccointingCsv:
     """
 
     def __init__(self, **kwargs):
-        self.output_dir = Path(kwargs.get("output_dir", str(Path().cwd())))
+        self.cache_dir = Path(kwargs.get("cache_dir", tempfile.mkdtemp(prefix="acsv_")))
         self.logger = getLogger(LOGGER_NAME)
-        self.soffice = kwargs.get("soffice_path")
         self.template_dict = {"order": [], "map": {}}
+        self.soffice = self._get_soffice(kwargs.get("soffice_path"))
         self.logs = {"warning": [], "info": [], "error": []}
         # define fields to be used to generate reproducable transaction ID
         # using hashing of their values
-        self.hash_fields = [
-            "date",
-            "transactionType",
-            "inBuyAmount",
-            "inBuyAsset",
-            "outSellAmount",
-            "outSellAsset",
-        ]
         desc_path = Path(kwargs.get("description"))
         descriptions = Path().cwd().joinpath("descriptions")
         if not desc_path.exists():
@@ -77,14 +78,24 @@ class AccointingCsv:
         if not desc_path.exists():
             desc_path = descriptions.joinpath(f"{kwargs.get('description')}.yaml")
         if not desc_path.exists():
-            self.logger.error(
-                "Could not find given description '%s' in '%s'",
-                kwargs.get("description"),
-                descriptions,
+            raise RuntimeError(
+                f"Could not find given description '{kwargs.get('description')}' in "
+                f"'{descriptions}'",
             )
         with open(desc_path, "r", encoding="UTF-8") as f_h:
             self.description = yaml.safe_load(f_h)
             self.description.update({"name": kwargs.get("description")})
+
+    @property
+    def error(self):
+        """return stored error"""
+        return self.logs.get("error")
+
+    @error.setter
+    def error(self, msg: str):
+        """store given warning for post-poned output"""
+        if msg not in self.logs.get("error"):
+            self.logs["error"].append(msg)
 
     @property
     def fieldnames(self):
@@ -95,48 +106,56 @@ class AccointingCsv:
         return fieldnames
 
     @property
-    def warning(self):
-        """return stored warnings"""
-        return self.logs.get("warning")
-
-    @warning.setter
-    def warning(self, msg):
-        """store given warning for post-poned output"""
-        if msg not in self.logs.get("warning"):
-            self.logs["warning"].append(msg)
-
-    @property
     def info(self):
         """return stored info"""
         return self.logs.get("info")
 
     @info.setter
-    def info(self, msg):
+    def info(self, msg: str):
         """store given warning for post-poned output"""
         if msg not in self.logs.get("info"):
             self.logs["info"].append(msg)
 
     @property
-    def error(self):
-        """return stored error"""
-        return self.logs.get("error")
+    def warning(self):
+        """return stored warnings"""
+        return self.logs.get("warning")
 
-    @error.setter
-    def error(self, msg):
+    @warning.setter
+    def warning(self, msg: str):
         """store given warning for post-poned output"""
-        if msg not in self.logs.get("error"):
-            self.logs["error"].append(msg)
+        if msg not in self.logs.get("warning"):
+            self.logs["warning"].append(msg)
+
+    def _get_soffice(self, soffice: str = ""):
+        """return path to soffice"""
+        if soffice:
+            soffice_path = Path(self.soffice)
+            if not soffice_path.exists() and not (
+                soffice_path.is_file() or soffice_path.is_symlink()
+            ):
+                raise ProcessLookupError(
+                    "Given soffice-path is not valid. Please check '--soffice-path'."
+                )
+            return soffice
+        soffice = shutil.which("soffice")
+        if not soffice:
+            raise ProcessLookupError(
+                "Required command soffice not found. "
+                "Please install LibreOffice or use '--soffice-path'."
+            )
+        return soffice
 
     def prepare_template(self, template_url: str):
         """download and prepare Accointing template"""
         filename = Path(template_url).name
-        template_filepath = self.output_dir.joinpath(filename)
+        template_filepath = template_url
         if template_url.startswith("http"):
             headers = {"user-agent": f"acsv-agent/{VERSION}"}
             with requests.get(template_url, stream=True, headers=headers) as resp:
                 resp.raise_for_status()
                 filename = resp.url.rsplit("/", 1)[1].split("?", 1)[0]
-                template_filepath = self.output_dir.joinpath(filename)
+                template_filepath = self.cache_dir.joinpath(filename)
                 with open(template_filepath, "wb") as f_h:
                     for chunk in resp.iter_content(chunk_size=128):
                         f_h.write(chunk)
@@ -158,21 +177,6 @@ class AccointingCsv:
             "Given file %s is not of type CSV or TSV. Preparing for conversion.",
             template_filepath,
         )
-        if self.soffice:
-            soffice_path = Path(self.soffice)
-            if not soffice_path.exists() and not (
-                soffice_path.is_file() or soffice_path.is_symlink()
-            ):
-                raise ProcessLookupError(
-                    "Given soffice-path is not valid. Please check '--soffice-path'."
-                )
-        else:
-            self.soffice = shutil.which("soffice")
-            if not self.soffice:
-                raise ProcessLookupError(
-                    "Required command soffice not found. "
-                    "Please install LibreOffice or use '--soffice-path'."
-                )
         self.logger.info("Starting conversion using %s.", self.soffice)
         try:
             run_soffice_name = subprocess.run(
@@ -283,6 +287,14 @@ class AccointingCsv:
             return ""
         if not isinstance(src_field, dict):
             return row.get(src_field)
+        return self.get_field_value_from_map(
+            row=row, src_field=src_field, follow_map=follow_map
+        )
+
+    def get_field_value_from_map(
+        self, row: dict, src_field: dict, follow_map: bool = True
+    ):
+        """return value after analyzing map"""
         map_name = src_field.get("map")
         if not map_name:
             return ""
@@ -308,10 +320,11 @@ class AccointingCsv:
             return check_field
         return field_map.get("map").get(check_field).get("value")
 
-    def generate_trans_id(self, row: dict):
+    def generate_trans_id(self, row: dict, fields: list = None):
         """generate ID for given transaction"""
+        hash_fields = fields or HASH_FIELDS
         checksum = hashlib.sha256(self.get_row_date(row).encode("UTF-8"))
-        for short_field in self.hash_fields:
+        for short_field in hash_fields:
             checksum.update(
                 self.get_field_value(row, short_field, follow_map=False).encode("UTF-8")
             )
@@ -352,15 +365,20 @@ def get_arguments():
         help="CSV description to be used for conversion.",
     )
     parser.add_argument(
-        "--output-dir",
-        default=str(Path().cwd()),
-        help="directory to store results into",
+        "--cache-dir",
+        default=tempfile.mkdtemp(prefix="acsv_"),
+        help=(
+            "directory to cache template files "
+            f"(Default: unique directory in {tempfile.gettempdir()})"
+        ),
     )
     parser.add_argument(
         "--no-overwrite",
-        default=False,
         action="store_true",
         help="do not overwrite existing target file (default is overwrite)",
+    )
+    parser.add_argument(
+        "-q", "--quiet", action="store_true", help="show only error output"
     )
     parser.add_argument(
         "--soffice-path", help="provide path to LibreOffice binary for CSV conversion"
@@ -371,18 +389,48 @@ def get_arguments():
         default="https://www.accointing.com/app/templates/Accointing_template.xlsx",
         help="path or web URL to Accointing template",
     )
+    parser.add_argument(
+        "-v", "--verbose", action="store_true", help="show verbose output"
+    )
+    parser.add_argument("-V", "--version", action="store_true", help="show version")
     return parser.parse_args()
 
 
 def main():
     """main function"""
     args = get_arguments()
+    log_level = INFO
+    if args.quiet:
+        log_level = ERROR
+    if args.verbose:
+        log_level = DEBUG
     logger = getLogger(LOGGER_NAME)
-    coloredlogs.install(level=INFO, logger=logger)
-    logger.setLevel(INFO)
-    template = AccointingCsv(**args.__dict__)
-    template.prepare_template(template_url=args.template_url)
-    template.create_csv(args.source_file, args.target_file, args.no_overwrite)
+    coloredlogs.install(level=log_level, logger=logger)
+    logger.setLevel(log_level)
+    try:
+        template = AccointingCsv(**args.__dict__)
+    except RuntimeError as error:
+        logger.error("could not load description: %s", error)
+        sys.exit(4)
+    # pylint: disable=broad-except
+    try:
+        template.prepare_template(template_url=args.template_url)
+    except FileNotFoundError as error:
+        logger.error("Template file '%s' not found", error.filename)
+        sys.exit(5)
+    except RuntimeError as error:
+        logger.error("template conversion failed: %s", error)
+    except Exception as error:
+        logger.error("could not prepare CSV template: %s", error)
+        sys.exit(5)
+    try:
+        template.create_csv(args.source_file, args.target_file, args.no_overwrite)
+    except FileNotFoundError as error:
+        logger.error("file '%s' not found", error.filename)
+        sys.exit(6)
+    except RuntimeError as error:
+        logger.error("configuration error processing CSV: %s", error)
+        sys.exit(6)
     for log in template.info:
         logger.info(log)
     for log in template.warning:
