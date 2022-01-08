@@ -18,6 +18,32 @@ The generated file can be imported using the [manual import](https://hub.accoint
 
 [![pre-commit.ci status](https://results.pre-commit.ci/badge/github/Andrwe/accointing-convert/main.svg)](https://results.pre-commit.ci/latest/github/Andrwe/accointing-convert/main)
 
+### Usage
+
+#### Convert Exports
+
+1. [generate CSV based transaction exports](./generate_csv/)
+1. run accointing_convert using the exports
+
+#### Create Description
+
+Description files in YAML format are used to define the conversion process.
+This is done by connecting columns in export CSV to the columns required in the import CSV.
+Due to the different export formats used by different exchanges and wallets the description file supports mapping of values and columns based on an other column.
+
+To create a description file follow these steps:
+
+1. fork [the main repository](https://github.com/Andrwe/accointing-convert/)
+1. copy `descriptions/sample.yaml` to a file within `descriptions/` called like the exchange/wallet you are describing
+1. edit the copied file
+   *
+
+### Caveats
+
+Due to limitation of the import system of Accointing not classifications available via web-app can be defined in the import file. (see [this forum post](https://community.accointing.com/t/classification-value-confusion-doc-vs-template-vs-import/8559) for details)
+
+To help determining affected transactions accointing_convert lists all transaction with non-importable classification as warning after converting.
+
 
 ### License
 
