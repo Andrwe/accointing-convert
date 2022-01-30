@@ -16,7 +16,6 @@ from logging import getLogger, DEBUG, ERROR, INFO
 from pathlib import Path
 
 
-VERSION = "0.0.1"
 LOGGER_NAME = "ACSV_log"
 SOFFICE_ARGS = {
     "libreoffice": ["--convert-to", "csv"],
@@ -34,11 +33,24 @@ HASH_FIELDS = [
     "outSellAmount",
     "outSellAsset",
 ]
+SCRIPT_DIR = Path(os.path.realpath(__file__)).parent
+
+
+def __version():
+    """return version from version.txt or default"""
+    version_file = Path(os.path.realpath(__file__)).parent.joinpath("version.txt")
+    if not version_file.exists():
+        return "0.1a1"
+    with version_file.open("r", encoding="UTF-8") as f_h:
+        return f_h.readlines()[0]
+
+
+__version__ = __version()
 
 
 def dep_error(module: str):
     """print dependency error message"""
-    require_txt = os.path.join(os.getcwd(), "requirements.txt")
+    require_txt = SCRIPT_DIR.joinpath("requirements.txt")
     package = MODULE_MAP.get(module, module)
     print(
         f"Required module {module} not found.\n\n"
@@ -58,6 +70,42 @@ except ModuleNotFoundError as mod_err:
     dep_error(mod_err.name)
 
 
+class _DescriptionAction(configargparse.Action):
+    """
+    custom action to list all available description definitions
+    """
+
+    # pylint: disable=redefined-builtin
+    def __init__(
+        self,
+        option_strings,
+        dest=configargparse.SUPPRESS,
+        default=configargparse.SUPPRESS,
+        help="show available descriptions",
+    ):
+        super().__init__(
+            option_strings=option_strings,
+            dest=dest,
+            default=default,
+            nargs=0,
+            help=help,
+        )
+
+    def __call__(self, parser, namespace, values, option_string=None):
+        desc_path = SCRIPT_DIR.joinpath("descriptions")
+        msg = ["The following descriptions are known:\n\n"]
+        msg.extend(
+            [
+                desc.name.replace(".yaml", "\n")
+                for desc in desc_path.iterdir()
+                if desc.is_file()
+                and not desc.name.startswith("sample")
+                and desc.suffix == ".yaml"
+            ]
+        )
+        parser.exit(message="* ".join(msg))
+
+
 class AccointingCsv:
     """
     class to manage CSV template of Accointing
@@ -72,7 +120,7 @@ class AccointingCsv:
         # define fields to be used to generate reproducable transaction ID
         # using hashing of their values
         desc_path = Path(kwargs.get("description"))
-        descriptions = Path().cwd().joinpath("descriptions")
+        descriptions = SCRIPT_DIR.joinpath("descriptions")
         if not desc_path.exists():
             desc_path = descriptions.joinpath(kwargs.get("description"))
         if not desc_path.exists():
@@ -82,7 +130,7 @@ class AccointingCsv:
                 f"Could not find given description '{kwargs.get('description')}' in "
                 f"'{descriptions}'",
             )
-        with open(desc_path, "r", encoding="UTF-8") as f_h:
+        with desc_path.open("r", encoding="UTF-8") as f_h:
             self.description = yaml.safe_load(f_h)
             self.description.update({"name": kwargs.get("description")})
 
@@ -151,7 +199,7 @@ class AccointingCsv:
         filename = Path(template_url).name
         template_filepath = template_url
         if template_url.startswith("http"):
-            headers = {"user-agent": f"acsv-agent/{VERSION}"}
+            headers = {"user-agent": f"acsv-agent/{__version__}"}
             with requests.get(template_url, stream=True, headers=headers) as resp:
                 resp.raise_for_status()
                 filename = resp.url.rsplit("/", 1)[1].split("?", 1)[0]
@@ -365,6 +413,11 @@ def get_arguments():
         help="CSV description to be used for conversion.",
     )
     parser.add_argument(
+        "-l",
+        "--list-descriptions",
+        action=_DescriptionAction,
+    )
+    parser.add_argument(
         "--cache-dir",
         default=tempfile.mkdtemp(prefix="acsv_"),
         help=(
@@ -392,7 +445,9 @@ def get_arguments():
     parser.add_argument(
         "-v", "--verbose", action="store_true", help="show verbose output"
     )
-    parser.add_argument("-V", "--version", action="store_true", help="show version")
+    parser.add_argument(
+        "-V", "--version", action="version", help="show version", version=__version__
+    )
     return parser.parse_args()
 
 
