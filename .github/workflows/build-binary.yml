@@ -27,23 +27,23 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v2
 
-      - name: Setup
-        uses: actions/setup-python@v2
-        with:
-          python-version: ${{ matrix.python-version }}
-          architecture: ${{ matrix.architecture }}
+        # not using setup-python due to https://github.com/actions/setup-python/issues/325
+        # - name: Setup
+        #   uses: actions/setup-python@v2
+        #   with:
+        #     python-version: ${{ matrix.python-version }}
+        #     architecture: ${{ matrix.architecture }}
 
       # using venv to prevent https://github.com/JonathonReinhart/staticx/issues/188
       # building staticx from source is required to prevent https://github.com/JonathonReinhart/staticx/issues/205
       - name: prepare environment
         run: |
-          python -m pip install virtualenv
-          python -m virtualenv --copies /tmp/venv
-          . /tmp/venv/bin/activate
-          /tmp/venv/bin/pip install -U pip
-          /tmp/venv/bin/pip install scons
-          /tmp/venv/bin/pip install -r ./requirements.txt
-          /tmp/venv/bin/pip install --no-binary=staticx pyinstaller staticx patchelf
+          export DEBIAN_FRONTEND=noninteractive
+          sudo apt-get update -qq --yes
+          sudo apt-get install python3-pip scons --yes
+          pip install -U pip
+          pip install -r ./requirements.txt
+          pip install --no-binary=staticx pyinstaller staticx patchelf
 
       - name: install upx
         run: curl -sLo - "https://github.com/upx/upx/releases/download/v${{ matrix.upx-version }}/upx-${{ matrix.upx-version }}-amd64_linux.tar.xz" | tar -C /tmp -xvJf - "upx-${{ matrix.upx-version }}-amd64_linux/upx"
@@ -53,17 +53,21 @@ jobs:
 
       - name: build binary
         run: |
-          . /tmp/venv/bin/activate
           pyinstaller --clean --strip --onefile --upx-dir "/tmp/upx-${{ matrix.upx-version }}-amd64_linux" --noconfirm ./accointing_convert.spec
 
       - name: static-linking binary
         run: |
-          . /tmp/venv/bin/activate
+          mkdir -p bin
           staticx --strip dist/accointing_convert bin/accointing_convert
 
       - name: test binary
         run: |
+          echo "ls: "
           ls -lh ./bin/
+          echo "version: "
           ./bin/accointing_convert --version
+          test "$(./bin/accointing_convert --version)" = "$(cat version.txt)"
+          echo "descriptions: "
           ./bin/accointing_convert --list-descriptions
+          echo "help: "
           ./bin/accointing_convert --help
