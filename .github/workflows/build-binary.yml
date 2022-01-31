@@ -1,0 +1,69 @@
+---
+# yamllint disable rule:line-length
+name: "BuildBinary"
+
+"on":
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.10']
+        architecture: ['x64']
+        upx-version: ['3.96']
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Setup
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python-version }}
+          architecture: ${{ matrix.architecture }}
+
+      # using venv to prevent https://github.com/JonathonReinhart/staticx/issues/188
+      # building staticx from source is required to prevent https://github.com/JonathonReinhart/staticx/issues/205
+      - name: prepare environment
+        run: |
+          python -m pip install virtualenv
+          python -m virtualenv --copies /tmp/venv
+          . /tmp/venv/bin/activate
+          /tmp/venv/bin/pip install -U pip
+          /tmp/venv/bin/pip install scons
+          /tmp/venv/bin/pip install -r ./requirements.txt
+          /tmp/venv/bin/pip install --no-binary=staticx pyinstaller staticx patchelf
+
+      - name: install upx
+        run: curl -sLo - "https://github.com/upx/upx/releases/download/v${{ matrix.upx-version }}/upx-${{ matrix.upx-version }}-amd64_linux.tar.xz" | tar -C /tmp -xvJf - "upx-${{ matrix.upx-version }}-amd64_linux/upx"
+
+      - name: generate version file
+        run: echo "${GITHUB_REF_NAME}" > ./version.txt
+
+      - name: build binary
+        run: |
+          . /tmp/venv/bin/activate
+          pyinstaller --clean --strip --onefile --upx-dir "/tmp/upx-${{ matrix.upx-version }}-amd64_linux" --noconfirm ./accointing_convert.spec
+
+      - name: static-linking binary
+        run: |
+          . /tmp/venv/bin/activate
+          staticx --strip dist/accointing_convert bin/accointing_convert
+
+      - name: test binary
+        run: |
+          ls -lh ./bin/
+          ./bin/accointing_convert --version
+          ./bin/accointing_convert --list-descriptions
+          ./bin/accointing_convert --help
