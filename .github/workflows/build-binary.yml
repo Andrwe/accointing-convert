@@ -1,0 +1,83 @@
+---
+# yamllint disable rule:line-length
+name: "BuildBinary"
+
+"on":
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: write
+
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.10']
+        architecture: ['x64']
+        upx-version: ['3.96']
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+        # not using setup-python due to https://github.com/actions/setup-python/issues/325
+        # - name: Setup
+        #   uses: actions/setup-python@v2
+        #   with:
+        #     python-version: ${{ matrix.python-version }}
+        #     architecture: ${{ matrix.architecture }}
+
+      # using venv to prevent https://github.com/JonathonReinhart/staticx/issues/188
+      # building staticx from source is required to prevent https://github.com/JonathonReinhart/staticx/issues/205
+      - name: prepare environment
+        run: |
+          export DEBIAN_FRONTEND=noninteractive
+          sudo apt-get update -qq --yes
+          sudo apt-get install python3-pip scons --yes
+          pip install -U pip
+          pip install -r ./requirements.txt
+          pip install --no-binary=staticx pyinstaller staticx patchelf
+
+      - name: install upx
+        run: curl -sLo - "https://github.com/upx/upx/releases/download/v${{ matrix.upx-version }}/upx-${{ matrix.upx-version }}-amd64_linux.tar.xz" | tar -C /tmp -xvJf - "upx-${{ matrix.upx-version }}-amd64_linux/upx"
+
+      - name: generate version file
+        run: echo "${GITHUB_REF_NAME}" > ./version.txt
+
+      - name: build binary
+        run: |
+          pyinstaller --clean --strip --onefile --upx-dir "/tmp/upx-${{ matrix.upx-version }}-amd64_linux" --noconfirm ./accointing_convert.spec
+
+      - name: static-linking binary
+        run: |
+          mkdir -p bin
+          staticx --strip dist/accointing_convert bin/accointing_convert
+
+      - name: test binary
+        run: |
+          echo "ls: "
+          ls -lh ./bin/
+          echo "version: "
+          ./bin/accointing_convert --version
+          test "$(./bin/accointing_convert --version)" = "$(cat version.txt)"
+          echo "descriptions: "
+          ./bin/accointing_convert --list-descriptions
+          echo "help: "
+          ./bin/accointing_convert --help
+
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          draft: ${{ contains(github.ref, 'a') }}
+          prerelease: ${{ contains(github.ref, 'a') || contains(github.ref, 'rc') }}
+          files: bin/accointing_convert
+          generate_release_notes: true
