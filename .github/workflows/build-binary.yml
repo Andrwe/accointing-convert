@@ -4,7 +4,7 @@ name: "BuildBinary"
 
 "on":
   push:
-    branches: [main]
+    branches: [main, 1_static_binary_linux]
   pull_request:
     branches: [main]
 
