@@ -7,6 +7,7 @@ name: "BuildBinary"
     branches: [main, 1_static_binary_linux]
   pull_request:
     branches: [main]
+  workflow_dispatch:
 
 jobs:
   build:
