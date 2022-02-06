@@ -55,11 +55,24 @@ jobs:
       - name: build binary
         run: |
           pyinstaller --clean --strip --onefile --upx-dir "/tmp/upx-${{ matrix.upx-version }}-amd64_linux" --noconfirm ./accointing_convert.spec
+        if: ${{ ! contains(github.ref, 'a') }}
+
+      - name: build binary debug
+        run: |
+          pyinstaller --clean --onefile --upx-dir "/tmp/upx-${{ matrix.upx-version }}-amd64_linux" --noconfirm --debug imports --debug bootloader ./accointing_convert_debug.spec
+        if: ${{ contains(github.ref, 'a') }}
 
       - name: static-linking binary
         run: |
           mkdir -p bin
           staticx --strip dist/accointing_convert bin/accointing_convert
+        if: ${{ ! contains(github.ref, 'a') }}
+
+      - name: static-linking binary debug
+        run: |
+          mkdir -p bin
+          staticx --debug dist/accointing_convert bin/accointing_convert
+        if: ${{ contains(github.ref, 'a') }}
 
       - name: test binary
         run: |
@@ -75,7 +88,18 @@ jobs:
 
       - name: Release
         uses: softprops/action-gh-release@v1
-        if: startsWith(github.ref, 'refs/tags/')
+        if: ${{ startsWith(github.ref, 'refs/tags/') && contains(github.ref, 'a') }}
+        with:
+          draft: true
+          prerelease: true
+          files: |
+            bin/accointing_convert
+            build/accointing_convert_debug/warn-accointing_convert_debug.txt
+          generate_release_notes: true
+
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        if: ${{ startsWith(github.ref, 'refs/tags/') }}
         with:
           draft: ${{ contains(github.ref, 'a') }}
           prerelease: ${{ contains(github.ref, 'a') || contains(github.ref, 'rc') }}
