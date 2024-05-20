@@ -386,9 +386,11 @@ def get_arguments():
         filter(
             None,
             [
-                str(Path(os.getenv("XDG_CONFIG_HOME")).joinpath(config_filename))
-                if os.getenv("XDG_CONFIG_HOME")
-                else None,
+                (
+                    str(Path(os.getenv("XDG_CONFIG_HOME")).joinpath(config_filename))
+                    if os.getenv("XDG_CONFIG_HOME")
+                    else None
+                ),
                 str(Path().home().joinpath(".config", config_filename)),
             ],
         )
