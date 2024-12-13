@@ -1,3 +1,7 @@
+# Archived
+
+As I don't use accointing anymore, this repository is archived.
+
 # accointing-convert
 
 [![Project - Roadmap/Tasks](https://img.shields.io/badge/Project-Roadmap%2FTasks-2ea44f?logo=github)](https://github.com/users/Andrwe/projects/1/views/1)
